@@ -1,10 +1,10 @@
-import { USER_POSTS_PAGE } from "../routes.js";
+import { USER_POSTS_PAGE, LOADING_PAGE, POSTS_PAGE } from "../routes.js";
 import { renderHeaderComponent } from "./header-component.js";
-import { posts, goToPage, getToken, user, formateDate } from "../index.js";
-import { attributesLikes } from "../attributes-likes.js";
+import { posts, goToPage, getToken, formateDate } from "../index.js";
+import { likeApi, dislikeApi } from "../api.js";
 
-export function renderPostsPageComponent({ appEl }) {
 
+export function renderUserPostsPageComponent({ appEl }) {
   const appHtml = `
               <div class="page-container">
                 <div class="header-container"></div>
@@ -12,10 +12,9 @@ export function renderPostsPageComponent({ appEl }) {
                 </ul>
               </div>`;
 
-
   appEl.innerHTML = appHtml;
-  const postsHTML = document.querySelector(".posts");
-  let postHTML = "";
+  const postsHTML = appEl.querySelector(".posts");
+  let postHTML = '';
 
   posts.forEach((post) => {
     let likes = '0';
@@ -37,14 +36,10 @@ export function renderPostsPageComponent({ appEl }) {
   <img class="post-image" src="${post.imageUrl}">
 </div>
 <div class="post-likes">
-<img class="preloader-likes --not-entered">
-${user ? `<button 
-  data-post-id="${post.id}" 
-  data-is-liked="${post.isLiked}"
-  data-likes="${post.likes.length}" 
+  <button data-post-id="${post.id}"
+  data-isLiked="${post.isLiked}"
   class="like-button">
-    <img src="./assets/images/${post.isLiked ? "like-active.svg" : "like-not-active.svg"
-        }">` : ''}
+    <img src="./assets/images/${post.isLiked ? "like-active.svg" : "like-not-active.svg"}">
   </button>
   <p class="post-likes-text">
   Нравится: <strong>${likes}</strong>
@@ -69,7 +64,6 @@ ${user ? `<button
 
   for (let userEl of document.querySelectorAll(".post-header")) {
     userEl.addEventListener("click", () => {
-
       goToPage(USER_POSTS_PAGE, {
         userId: userEl.dataset.userId,
       });
@@ -78,16 +72,33 @@ ${user ? `<button
 
   for (let userEl of document.querySelectorAll(".like-button")) {
     userEl.addEventListener("click", () => {
-      userEl.classList.add('not-entered');
-      userEl.previousElementSibling.classList.remove('--not-entered');
-      const sentData = {
-        isLiked: userEl.dataset.isLiked === "true" ? true : false,
-        likes: userEl.dataset.likes,
-        postId: userEl.dataset.postId,
-        token: getToken(),
-        img: userEl.querySelector('img'),
+      const isLiked = userEl.dataset.isLiked === "true" ? true : false;
+      const postId = userEl.dataset.postId;
+      if (isLiked) {
+        goToPage(LOADING_PAGE);
+        dislikeApi({
+          postId: postId,
+          token: getToken()
+        })
+          .then(() => {
+            goToPage(POSTS_PAGE);
+          })
+          .catch(() => {
+            goToPage(POSTS_PAGE);
+          });
+      } else {
+        goToPage(LOADING_PAGE);
+        likeApi({
+          postId: postId,
+          token: getToken()
+        })
+          .then(() => {
+            goToPage(POSTS_PAGE);
+          })
+          .catch(() => {
+            goToPage(POSTS_PAGE);
+          });
       }
-      attributesLikes(sentData);
     });
-  };
-};
+  }
+}
