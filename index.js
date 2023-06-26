@@ -15,12 +15,22 @@ import {
   removeUserFromLocalStorage,
   saveUserToLocalStorage,
 } from "./helpers.js";
+import { addPosts } from "./api.js";
+import { renderUserPostsPageComponent } from "./components/user-posts-page-component.js";
+import { getUserPosts } from "./api.js";
+import { ru } from "date-fns/locale";
+import { formatDistanceToNow } from "date-fns";
+
 
 export let user = getUserFromLocalStorage();
 export let page = null;
 export let posts = [];
 
-const getToken = () => {
+export const changeLocalPosts = (newPosts) => {
+  posts = newPosts;
+};
+
+export const getToken = () => {
   const token = user ? `Bearer ${user.token}` : undefined;
   return token;
 };
@@ -31,9 +41,10 @@ export const logout = () => {
   goToPage(POSTS_PAGE);
 };
 
-/**
- * Включает страницу приложения
- */
+export const formateDate = (date) => {
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ru });
+};
+
 export const goToPage = (newPage, data) => {
   if (
     [
@@ -67,11 +78,20 @@ export const goToPage = (newPage, data) => {
     }
 
     if (newPage === USER_POSTS_PAGE) {
-      // TODO: реализовать получение постов юзера из API
-      console.log("Открываю страницу пользователя: ", data.userId);
-      page = USER_POSTS_PAGE;
-      posts = [];
-      return renderApp();
+      page = LOADING_PAGE;
+      renderApp();
+      return getUserPosts({
+        userId: data.userId,
+        token: getToken()
+      })
+        .then(
+          (newPosts) => {
+            page = USER_POSTS_PAGE;
+            posts = newPosts;
+            return renderApp();
+          }
+        );
+
     }
 
     page = newPage;
@@ -110,23 +130,34 @@ const renderApp = () => {
     return renderAddPostPageComponent({
       appEl,
       onAddPostClick({ description, imageUrl }) {
-        // TODO: реализовать добавление поста в API
-        console.log("Добавляю пост...", { description, imageUrl });
-        goToPage(POSTS_PAGE);
+        addPosts({
+          description: description,
+          imageUrl: imageUrl,
+          token: getToken(),
+        })
+          .then(() => {
+            goToPage(POSTS_PAGE);
+          })
+          .catch(() => {
+            document
+              .querySelector(".form-error")
+              .classList.remove("--not-entered");
+          });
       },
     });
   }
 
   if (page === POSTS_PAGE) {
     return renderPostsPageComponent({
-      appEl,
-    });
+      appEl
+    }
+    );
   }
 
   if (page === USER_POSTS_PAGE) {
-    // TODO: реализовать страницу фотографию пользвателя
-    appEl.innerHTML = "Здесь будет страница фотографий пользователя";
-    return;
+    return renderUserPostsPageComponent({
+      appEl
+    });
   }
 };
 
